@@ -39,19 +39,33 @@ const routeLabels = { VO: 'Oral', IV: 'Intravenosa', IM: 'Intramuscular', SC: 'S
 const selectedRoutes = ['VO', 'VO'];
 const dipyrone = {
   name: 'Dipirona',
-  rate: 25,
+  oralRate: 25,
+  ivExample: 25,
   maxMg: 875,
   label: 'https://guardiaodocuidado.com.br/wp-content/uploads/2024/10/Para-Site-Ipanema-Bula-Dipirona-Gotas-1141-ME-1.pdf',
   technical: 'https://guardiaodocuidado.com.br/wp-content/uploads/2024/10/BOV_0012_22D_artigo_tecnico_dipirona_210x297mm-1.pdf'
 };
-function dipyroneCard(speciesIndex) {
+function dipyroneCard(speciesIndex, route) {
+  if (route === 'IV') {
+    const dog = speciesIndex === 0;
+    const source = dog ? 'https://www.sciencedirect.com/science/article/pii/S1467298716306730'
+      : 'https://pmc.ncbi.nlm.nih.gov/articles/PMC10814344/';
+    const description = dog
+      ? 'O Bretas (4ª edição, p. 165) descreve até 25 mg/kg por administração em cães.'
+      : 'O exemplo de 25 mg/kg foi estudado em gatas sob acompanhamento veterinário após ovariohisterectomia.';
+    return `<section class="panel"><h3>Dipirona · intravenosa</h3>
+      <p>${description} Cálculo em mg para a apresentação injetável de uso IV. A administração e a monitorização cabem à equipe veterinária.</p>
+      <button class="action" type="button" data-dipyrone>Usar exemplo de ${dipyrone.ivExample} mg/kg</button>
+      <a href="${source}" target="_blank" rel="noopener">Consultar estudo</a>
+      <output id="dipyroneResult" class="value" style="display:none"></output></section>`;
+  }
   const source = speciesIndex === 0
     ? 'Referências: Bretas Viana, 4ª edição, p. 165 (cães), e Biovet.'
     : 'Referência da dose felina: material técnico da Biovet.';
   return `<section class="panel"><h3>Dipirona · gotas orais</h3>
     <p>Exemplo para ${species[speciesIndex].toLowerCase()} com prescrição de Dipirona Gotas Biovet (500 mg/mL), para dor ou febre. O limite da bula é de 35 gotas por administração, equivalentes a 875 mg nesta apresentação.</p>
     <p>${source} Consulte o veterinário sobre o intervalo. Evite em animais com hipersensibilidade à dipirona.</p>
-    <button class="action" type="button" data-dipyrone>Usar exemplo de ${dipyrone.rate} mg/kg</button>
+    <button class="action" type="button" data-dipyrone>Usar exemplo de ${dipyrone.oralRate} mg/kg</button>
     <a href="${dipyrone.label}" target="_blank" rel="noopener">Consultar bula</a> ·
     <a href="${dipyrone.technical}" target="_blank" rel="noopener">Ficha técnica</a>
     <output id="dipyroneResult" class="value" style="display:none"></output></section>`;
@@ -89,8 +103,9 @@ $('body').insertAdjacentHTML('beforeend', antibioticPanel(animal));
 if (animal < 2) {
   const route = selectedRoutes[animal];
   const oral = route === 'VO';
+  const hasDipyrone = oral || route === 'IV';
+  if (hasDipyrone) $('body').insertAdjacentHTML('beforeend', dipyroneCard(animal, route));
   if (oral) {
-    $('body').insertAdjacentHTML('beforeend', dipyroneCard(animal));
     if (animal === 0) $('body').insertAdjacentHTML('beforeend', '<section class="panel"><h3>Meloxicam · manutenção</h3><p>Exemplo do vídeo para cães com prescrição de suspensão oral. A dose inicial tem cálculo próprio. Confirme a indicação e a bula da apresentação antes de usar.</p><button class="action" id="example">Usar exemplo de 0,1 mg/kg</button> <a href="https://animaldrugsatfda.fda.gov/adafda/app/search/public/document/downloadLabeling/2560" target="_blank" rel="noopener">Consultar bula</a></section>');
   }
   const controls = Object.entries(routeLabels).map(([key, label]) =>
@@ -100,7 +115,7 @@ if (animal < 2) {
   $('calcTitle').insertAdjacentHTML('afterend',
     '<p>Via de administração</p><div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0">' + controls +
     '</div><p>Escolha o medicamento para calcular pelo peso.</p><div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0">' + buttons +
-    (oral ? '<button type="button" class="install" data-dipyrone>Dipirona</button>' : '') +
+    (hasDipyrone ? '<button type="button" class="install" data-dipyrone>Dipirona</button>' : '') +
     (oral && animal === 0 ? '<button type="button" class="install" data-meloxicam>Meloxicam</button>' : '') + '</div>');
 }
 $('weight').value=weights[animal];$('slide').value=weights[animal];$('rate').value=rates[animal];
@@ -110,7 +125,9 @@ function calc() {
   $('rateHint').textContent = reference
     ? 'Exemplo inicial: ' + reference.minRate + ' mg/kg. Faixa do Bretas: ' + reference.minRate + '–' + reference.maxRate + ' mg/kg. Ajuste conforme a prescrição veterinária.'
     : '';
-  if (drug === dipyrone.name) $('rateHint').textContent = 'Exemplo da Biovet para a apresentação oral em gotas. Ajuste conforme a prescrição.';
+  if (drug === dipyrone.name) $('rateHint').textContent = selectedRoutes[animal] === 'IV'
+    ? 'Exemplo intravenoso para cálculo em mg. Confirme a dose prescrita para este paciente.'
+    : 'Exemplo da Biovet para a apresentação oral em gotas. Ajuste conforme a prescrição.';
   $('calcTitle').textContent = drug ? species[animal] + ' · ' + drug + ' · ' + selectedRoutes[animal] : species[animal];
   const weight = $('weight').valueAsNumber;
   const rate = $('rate').valueAsNumber;
@@ -124,8 +141,11 @@ function calc() {
       result = 'O cálculo ultrapassa o limite de 1.000 mg por dose citado no guia para cães grandes. Confira a prescrição.';
     }
   }
-  if (drug === dipyrone.name && total > dipyrone.maxMg) {
+  if (drug === dipyrone.name && selectedRoutes[animal] === 'VO' && total > dipyrone.maxMg) {
     result = 'O cálculo excede o limite da bula para esta apresentação (875 mg por dose). Confira a prescrição com o veterinário.';
+  }
+  if (drug === dipyrone.name && selectedRoutes[animal] === 'IV' && animal === 0 && rate > dipyrone.ivExample) {
+    result = 'A dose informada supera a referência canina do Bretas. Confira a prescrição.';
   }
   $('result').textContent = result;
   const dipyroneOutput = $('dipyroneResult');
@@ -165,7 +185,7 @@ $('body').onclick = event => {
     return;
   }
   if (event.target.closest('button[data-dipyrone]')) {
-    selectDrug(dipyrone.name, String(dipyrone.rate));
+    selectDrug(dipyrone.name, String(selectedRoutes[animal] === 'IV' ? dipyrone.ivExample : dipyrone.oralRate));
     return;
   }
   const source = event.target.closest('button[data-source]');
