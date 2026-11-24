@@ -16,6 +16,33 @@ $('dialog').onclick=e=>{if(e.target===$('dialog'))$('dialog').close()};
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e});
 $('install').onclick=async()=>{if(deferred){await deferred.prompt();deferred=null}else modal('<h2>Instalar AtlasVet</h2><p>No iPhone, abra o site no Safari, toque em Compartilhar e em Adicionar à Tela de Início.</p><p>No Android ou computador, procure Instalar aplicativo ou Adicionar à tela inicial no menu do navegador.</p>')};
 function go(p){location.hash=p}
+const antibioticReferences = [
+  { name: 'Amoxicilina', group: 'Aminopenicilina', dose: '10–20', interval: '8–12', routes: 'oral, intramuscular ou subcutânea', pages: '51–52',
+    note: 'Avaliar histórico de alergia a penicilinas. O guia descreve vômito e diarreia entre os possíveis efeitos da administração oral.' },
+  { name: 'Amoxicilina + clavulanato de potássio', group: 'Aminopenicilina associada a inibidor de beta-lactamase', dose: '15–20', interval: '8–12', routes: 'oral, intramuscular ou subcutânea', pages: '52',
+    note: 'A faixa em mg/kg considera a soma dos dois princípios ativos. Conferir a proporção e a via autorizada da apresentação prescrita.' },
+  { name: 'Cefaclor', group: 'Cefalosporina', dose: '10–20', interval: '8', routes: 'oral', pages: '96–97',
+    note: 'Avaliar alergia prévia a beta-lactâmicos. O guia desaconselha a via oral em choque, septicemia ou peritonite.',
+    dogNote: 'O guia limita a dose a 1.000 mg por administração em cães grandes.' },
+  { name: 'Cefadroxila', group: 'Cefalosporina', dose: '10–20', interval: '12', routes: 'oral', pages: '97',
+    note: 'Avaliar alergia prévia a beta-lactâmicos. O guia desaconselha a via oral em choque, septicemia ou peritonite.' }
+];
+function antibioticPanel(speciesIndex) {
+  if (speciesIndex !== 0 && speciesIndex !== 1) return '';
+  const patient = species[speciesIndex];
+  const cards = antibioticReferences.map(drug => `
+    <details class="panel">
+      <summary><strong>${drug.name}</strong> · ${patient}</summary>
+      <p>${drug.group} para infecções por bactérias sensíveis.</p>
+      <p><strong>Faixa descrita no guia</strong> · ${drug.dose} mg/kg por dose, a cada ${drug.interval} horas.</p>
+      <p><strong>Via</strong> · ${drug.routes}.</p>
+      <p>${drug.note} ${speciesIndex === 0 && drug.dogNote ? drug.dogNote : ''}</p>
+      <small>Bretas Viana, 4ª edição, p. ${drug.pages}.</small>
+    </details>`).join('');
+  return `<section aria-label="Antibióticos do guia"><h3>Antibióticos · ${patient}</h3>
+    <p>Fichas do <cite>Guia Terapêutico Veterinário</cite>, de Fernando A. Bretas Viana, 4ª edição.
+    Abra o medicamento para consultar a faixa publicada. A escolha do antibiótico, da dose, da via e da duração depende da avaliação veterinária e da bula atual da apresentação.</p>${cards}</section>`;
+}
 function render(){
 page=pages.includes(location.hash.slice(1))?location.hash.slice(1):'inicio';
 if(page==='carencia')animal=2;
@@ -27,6 +54,7 @@ const card=(i,title,desc)=>'<button class="card" data-page="'+pages[i]+'"><span 
 if(page==='inicio')$('body').innerHTML='<div class="cards">'+card(1,'Calculadora de doses','Cálculo por peso e dose prescrita.')+card(2,'Guia de tóxicos','Exposição, sinais e atendimento.')+card(3,'Carência em bovinos','Intervalos para carne e leite.')+card(4,'Rascunho de receita','Preparo e impressão de orientações.')+'</div>';
 if(page==='doses'){
 $('body').innerHTML='<section class="panel"><h3>'+species[animal]+'</h3><label for="weight">Peso do animal (kg)</label><input id="weight" type="number" step="any" min="0.001"><input id="slide" aria-label="Ajustar peso em quilogramas" type="range" min="0.1" step="0.1" max="'+(animal<2?100:1200)+'"><label for="rate">Dose prescrita (mg/kg)</label><input id="rate" type="number" min="0.000001" step="any" placeholder="Informe a dose"><output class="value" id="result" aria-live="polite"></output></section>'+(animal===0?'<section class="panel"><h3>Meloxicam · manutenção</h3><p>Exemplo do vídeo para cães com prescrição de suspensão oral. A dose inicial tem cálculo próprio. Confirme a indicação e a bula da apresentação antes de usar.</p><button class="action" id="example">Usar exemplo de 0,1 mg/kg</button> <a href="https://animaldrugsatfda.fda.gov/adafda/app/search/public/document/downloadLabeling/2560" target="_blank" rel="noopener">Consultar bula</a></section>':'');
+$('body').insertAdjacentHTML('beforeend', antibioticPanel(animal));
 $('weight').value=weights[animal];$('slide').value=weights[animal];$('rate').value=rates[animal];
 function calc(){const w=$('weight').valueAsNumber,r=$('rate').valueAsNumber;weights[animal]=$('weight').value;rates[animal]=$('rate').value;$('result').textContent=w>0&&r>0&&Number.isFinite(w*r)?fmt(w)+' kg × '+fmt(r)+' mg/kg = '+fmt(w*r)+' mg por dose':'Informe um peso e uma dose maiores que zero.'}
 $('slide').oninput=()=>{$('weight').value=$('slide').value;calc()};$('weight').oninput=()=>{$('slide').value=$('weight').value;calc()};$('rate').oninput=calc;if($('example'))$('example').onclick=()=>{$('rate').value='0.1';calc()};calc()
