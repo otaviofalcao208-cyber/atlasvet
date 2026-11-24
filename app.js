@@ -102,6 +102,10 @@ $('body').innerHTML='<section class="panel"><h3 id="calcTitle" tabindex="-1">'+s
 $('body').insertAdjacentHTML('beforeend', antibioticPanel(animal));
 if (animal < 2) {
   const route = selectedRoutes[animal];
+  if (route === 'IV') {
+    $('result').insertAdjacentHTML('beforebegin',
+      '<label for="concentration">Concentração da solução (mg/mL)</label><small id="concHint">Use a concentração do líquido que será aspirado, após reconstituição quando aplicável. Para associações, use a mesma base da dose prescrita.</small><input id="concentration" type="number" step="any" min="0" inputmode="decimal" aria-describedby="concHint" placeholder="Informe os mg por mL">');
+  }
   const oral = route === 'VO';
   const hasDipyrone = oral || route === 'IV';
   if (hasDipyrone) $('body').insertAdjacentHTML('beforeend', dipyroneCard(animal, route));
@@ -119,6 +123,7 @@ if (animal < 2) {
     (oral && animal === 0 ? '<button type="button" class="install" data-meloxicam>Meloxicam</button>' : '') + '</div>');
 }
 $('weight').value=weights[animal];$('slide').value=weights[animal];$('rate').value=rates[animal];
+const concentration = $('concentration');
 function calc() {
   const drug = selectedDrugs[animal];
   const reference = antibioticReferences.find(entry => entry.name === drug);
@@ -137,6 +142,13 @@ function calc() {
   let result = 'Informe um peso e uma dose prescrita maiores que zero.';
   if (weight > 0 && rate > 0 && Number.isFinite(total)) {
     result = fmt(weight) + ' kg × ' + fmt(rate) + ' mg/kg = ' + fmt(total) + ' mg por dose';
+    if (concentration) {
+      const strength = concentration.valueAsNumber;
+      const volume = total / strength;
+      result += strength > 0 && Number.isFinite(volume) && volume > 0
+        ? '. Volume por dose: ' + fmt(total) + ' mg ÷ ' + fmt(strength) + ' mg/mL = ' + fmt(volume) + ' mL.'
+        : '. Informe uma concentração maior que zero para calcular o volume em mL.';
+    }
     if (animal === 0 && drug === 'Cefaclor' && total > 1000) {
       result = 'O cálculo ultrapassa o limite de 1.000 mg por dose citado no guia para cães grandes. Confira a prescrição.';
     }
@@ -162,6 +174,7 @@ function calc() {
   });
 }
 function selectDrug(name, rate) {
+  if (concentration && selectedDrugs[animal] !== name) concentration.value = '';
   selectedDrugs[animal] = name;
   $('rate').value = rate;
   calc();
@@ -203,6 +216,7 @@ $('body').onclick = event => {
 $('slide').oninput = () => { $('weight').value = $('slide').value; calc(); };
 $('weight').oninput = () => { $('slide').value = $('weight').value; calc(); };
 $('rate').oninput = calc;
+if (concentration) concentration.oninput = calc;
 if ($('example')) $('example').onclick = () => selectDrug('Meloxicam · manutenção', '0.1');
 calc();
 }
