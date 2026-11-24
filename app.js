@@ -36,6 +36,7 @@ function antibioticPanel(speciesIndex) {
       <h3><button type="button" class="action" data-drug="${index}">${drug.name}</button></h3>
       <p>${drug.group} · ${patient}. Faixa do guia: ${drug.minRate}–${drug.maxRate} mg/kg por dose, a cada ${drug.interval} horas. Via: ${drug.routes}.</p>
       <p>${drug.note} ${speciesIndex === 0 && drug.dogNote ? drug.dogNote : ''}</p>
+      <output id="drug-result-${index}" class="value" aria-live="polite" style="display:none"></output>
       <small>Bretas Viana, 4ª edição, p. ${drug.pages}.</small>
     </section>`).join('');
   return `<section aria-label="Antibióticos do guia"><h3>Antibióticos · ${patient}</h3>
@@ -51,11 +52,23 @@ $('content').innerHTML='<h2>'+titles[idx]+'</h2><p class="intro">'+descriptions[
 const card=(i,title,desc)=>'<button class="card" data-page="'+pages[i]+'"><span class="badge tone'+(i-1)+'">'+icon(i)+'</span><h3>'+title+'</h3><p>'+desc+'</p></button>';
 if(page==='inicio')$('body').innerHTML='<div class="cards">'+card(1,'Calculadora de doses','Cálculo por peso e dose prescrita.')+card(2,'Guia de tóxicos','Exposição, sinais e atendimento.')+card(3,'Carência em bovinos','Intervalos para carne e leite.')+card(4,'Rascunho de receita','Preparo e impressão de orientações.')+'</div>';
 if(page==='doses'){
-$('body').innerHTML='<section class="panel"><h3 id="calcTitle" tabindex="-1">'+species[animal]+'</h3><label for="weight">Peso do animal (kg)</label><input id="weight" type="number" step="any" min="0.001"><input id="slide" aria-label="Ajustar peso em quilogramas" type="range" min="0.1" step="0.1" max="'+(animal<2?100:1200)+'"><label for="rate">Dose prescrita (mg/kg)</label><input id="rate" type="number" min="0.000001" step="any" placeholder="Informe a dose"><output class="value" id="result" aria-live="polite"></output></section>'+(animal===0?'<section class="panel"><h3>Meloxicam · manutenção</h3><p>Exemplo do vídeo para cães com prescrição de suspensão oral. A dose inicial tem cálculo próprio. Confirme a indicação e a bula da apresentação antes de usar.</p><button class="action" id="example">Usar exemplo de 0,1 mg/kg</button> <a href="https://animaldrugsatfda.fda.gov/adafda/app/search/public/document/downloadLabeling/2560" target="_blank" rel="noopener">Consultar bula</a></section>':'');
+$('body').innerHTML='<section class="panel"><h3 id="calcTitle" tabindex="-1">'+species[animal]+'</h3><label for="weight">Peso do animal (kg)</label><input id="weight" type="number" step="any" min="0.001"><input id="slide" aria-label="Ajustar peso em quilogramas" type="range" min="0.1" step="0.1" max="'+(animal<2?100:1200)+'"><label for="rate">Dose prescrita (mg/kg)</label><input id="rate" type="number" min="0.000001" step="any" placeholder="Informe a dose"><button type="button" id="manualDose" class="install" hidden>Digitar dose prescrita</button><output class="value" id="result" aria-live="polite"></output></section>'+(animal===0?'<section class="panel"><h3>Meloxicam · manutenção</h3><p>Exemplo do vídeo para cães com prescrição de suspensão oral. A dose inicial tem cálculo próprio. Confirme a indicação e a bula da apresentação antes de usar.</p><button class="action" id="example">Usar exemplo de 0,1 mg/kg</button> <a href="https://animaldrugsatfda.fda.gov/adafda/app/search/public/document/downloadLabeling/2560" target="_blank" rel="noopener">Consultar bula</a></section>':'');
 $('body').insertAdjacentHTML('beforeend', antibioticPanel(animal));
+if (animal < 2) {
+  const buttons = antibioticReferences.map((entry, index) =>
+    `<button type="button" class="install" data-drug="${index}">${entry.name}</button>`).join('');
+  $('calcTitle').insertAdjacentHTML('afterend',
+    '<p>Escolha o medicamento para calcular pelo peso.</p><div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0">' + buttons + '</div>');
+}
 $('weight').value=weights[animal];$('slide').value=weights[animal];$('rate').value=rates[animal];
 function calc() {
   const drug = selectedDrugs[animal];
+  const reference = antibioticReferences.find(entry => entry.name === drug);
+  const manual = $('rate').value !== '' || !reference;
+  $('manualDose').hidden = manual;
+  $('rate').hidden = !manual;
+  document.querySelector('label[for="rate"]').hidden = !manual;
+  document.querySelector('label[for="rate"]').style.display = manual ? '' : 'none';
   $('calcTitle').textContent = drug ? species[animal] + ' · ' + drug : species[animal];
   const weight = $('weight').valueAsNumber;
   const rate = $('rate').valueAsNumber;
@@ -69,7 +82,6 @@ function calc() {
       result = 'O cálculo ultrapassa o limite de 1.000 mg por dose citado no guia para cães grandes. Confira a prescrição.';
     }
   }
-  const reference = antibioticReferences.find(entry => entry.name === drug);
   if (reference && $('rate').value === '') {
     result = 'Informe o peso do animal para calcular a faixa do guia.';
     const low = reference.minRate * weight;
@@ -83,13 +95,22 @@ function calc() {
     }
   }
   $('result').textContent = result;
+  antibioticReferences.forEach((entry, index) => {
+    const output = $('drug-result-' + index);
+    if (!output) return;
+    const active = entry.name === drug;
+    output.style.display = active ? 'block' : 'none';
+    output.textContent = active ? result : '';
+  });
 }
 function selectDrug(name, rate) {
   selectedDrugs[animal] = name;
   $('rate').value = rate;
   calc();
-  $('calcTitle').scrollIntoView({block: 'center'});
-  $('calcTitle').focus({preventScroll: true});
+  if (rate) {
+    $('calcTitle').scrollIntoView({block: 'center'});
+    $('calcTitle').focus({preventScroll: true});
+  }
 }
 $('body').onclick = event => {
   const button = event.target.closest('button[data-drug]');
@@ -98,6 +119,14 @@ $('body').onclick = event => {
 $('slide').oninput = () => { $('weight').value = $('slide').value; calc(); };
 $('weight').oninput = () => { $('slide').value = $('weight').value; calc(); };
 $('rate').oninput = calc;
+$('manualDose').onclick = () => {
+  $('rate').hidden = false;
+  const label = document.querySelector('label[for="rate"]');
+  label.hidden = false;
+  label.style.display = '';
+  $('manualDose').hidden = true;
+  $('rate').focus();
+};
 if ($('example')) $('example').onclick = () => selectDrug('Meloxicam · manutenção', '0.1');
 calc();
 }
