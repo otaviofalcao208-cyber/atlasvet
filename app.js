@@ -27,6 +27,25 @@ const antibioticReferences = [
   { name: 'Cefadroxila', group: 'Cefalosporina', minRate: 10, maxRate: 20, interval: '12', routes: 'oral', pages: '97',
     note: 'Avaliar alergia prévia a beta-lactâmicos. O guia desaconselha a via oral em choque, septicemia ou peritonite.' }
 ];
+const dipyrone = {
+  name: 'Dipirona',
+  rate: 25,
+  maxMg: 875,
+  label: 'https://guardiaodocuidado.com.br/wp-content/uploads/2024/10/Para-Site-Ipanema-Bula-Dipirona-Gotas-1141-ME-1.pdf',
+  technical: 'https://guardiaodocuidado.com.br/wp-content/uploads/2024/10/BOV_0012_22D_artigo_tecnico_dipirona_210x297mm-1.pdf'
+};
+function dipyroneCard(speciesIndex) {
+  const source = speciesIndex === 0
+    ? 'Referências: Bretas Viana, 4ª edição, p. 165 (cães), e Biovet.'
+    : 'Referência da dose felina: material técnico da Biovet.';
+  return `<section class="panel"><h3>Dipirona · gotas orais</h3>
+    <p>Exemplo para ${species[speciesIndex].toLowerCase()} com prescrição de Dipirona Gotas Biovet (500 mg/mL), para dor ou febre. O limite da bula é de 35 gotas por administração, equivalentes a 875 mg nesta apresentação.</p>
+    <p>${source} Consulte o veterinário sobre o intervalo. Evite em animais com hipersensibilidade à dipirona.</p>
+    <button class="action" type="button" data-dipyrone>Usar exemplo de ${dipyrone.rate} mg/kg</button>
+    <a href="${dipyrone.label}" target="_blank" rel="noopener">Consultar bula</a> ·
+    <a href="${dipyrone.technical}" target="_blank" rel="noopener">Ficha técnica</a>
+    <output id="dipyroneResult" class="value" style="display:none"></output></section>`;
+}
 const selectedDrugs = [null, null, null, null];
 function antibioticPanel(speciesIndex) {
   if (speciesIndex !== 0 && speciesIndex !== 1) return '';
@@ -57,10 +76,11 @@ if(page==='doses'){
 $('body').innerHTML='<section class="panel"><h3 id="calcTitle" tabindex="-1">'+species[animal]+'</h3><label for="weight">Peso do animal (kg)</label><input id="weight" type="number" step="any" min="0.001"><input id="slide" aria-label="Ajustar peso em quilogramas" type="range" min="0.1" step="0.1" max="'+(animal<2?100:1200)+'"><label for="rate">Dose prescrita (mg/kg)</label><small id="rateHint" style="display:block"></small><input id="rate" aria-describedby="rateHint" type="number" min="0.000001" step="any" placeholder="Informe a dose"><output class="value" id="result" aria-live="polite"></output></section>'+(animal===0?'<section class="panel"><h3>Meloxicam · manutenção</h3><p>Exemplo do vídeo para cães com prescrição de suspensão oral. A dose inicial tem cálculo próprio. Confirme a indicação e a bula da apresentação antes de usar.</p><button class="action" id="example">Usar exemplo de 0,1 mg/kg</button> <a href="https://animaldrugsatfda.fda.gov/adafda/app/search/public/document/downloadLabeling/2560" target="_blank" rel="noopener">Consultar bula</a></section>':'');
 $('body').insertAdjacentHTML('beforeend', antibioticPanel(animal));
 if (animal < 2) {
+  $('body').insertAdjacentHTML('beforeend', dipyroneCard(animal));
   const buttons = antibioticReferences.map((entry, index) =>
     `<button type="button" class="install" data-drug="${index}">${entry.name}</button>`).join('');
   $('calcTitle').insertAdjacentHTML('afterend',
-    '<p>Escolha o medicamento para calcular pelo peso.</p><div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0">' + buttons + '</div>');
+    '<p>Escolha o medicamento para calcular pelo peso.</p><div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0">' + buttons + '<button type="button" class="install" data-dipyrone>Dipirona</button></div>' );
 }
 $('weight').value=weights[animal];$('slide').value=weights[animal];$('rate').value=rates[animal];
 function calc() {
@@ -69,6 +89,7 @@ function calc() {
   $('rateHint').textContent = reference
     ? 'Exemplo inicial: ' + reference.minRate + ' mg/kg. Faixa do Bretas: ' + reference.minRate + '–' + reference.maxRate + ' mg/kg. Ajuste conforme a prescrição veterinária.'
     : '';
+  if (drug === dipyrone.name) $('rateHint').textContent = 'Exemplo da Biovet para a apresentação oral em gotas. Ajuste conforme a prescrição.';
   $('calcTitle').textContent = drug ? species[animal] + ' · ' + drug : species[animal];
   const weight = $('weight').valueAsNumber;
   const rate = $('rate').valueAsNumber;
@@ -82,7 +103,15 @@ function calc() {
       result = 'O cálculo ultrapassa o limite de 1.000 mg por dose citado no guia para cães grandes. Confira a prescrição.';
     }
   }
+  if (drug === dipyrone.name && total > dipyrone.maxMg) {
+    result = 'O cálculo excede o limite da bula para esta apresentação (875 mg por dose). Confira a prescrição com o veterinário.';
+  }
   $('result').textContent = result;
+  const dipyroneOutput = $('dipyroneResult');
+  if (dipyroneOutput) {
+    dipyroneOutput.style.display = drug === dipyrone.name ? 'block' : 'none';
+    dipyroneOutput.textContent = drug === dipyrone.name ? result : '';
+  }
   antibioticReferences.forEach((entry, index) => {
     const output = $('drug-result-' + index);
     if (!output) return;
@@ -101,6 +130,10 @@ function selectDrug(name, rate) {
   }
 }
 $('body').onclick = event => {
+  if (event.target.closest('button[data-dipyrone]')) {
+    selectDrug(dipyrone.name, String(dipyrone.rate));
+    return;
+  }
   const source = event.target.closest('button[data-source]');
   if (source) {
     const drug = antibioticReferences[Number(source.dataset.source)];
