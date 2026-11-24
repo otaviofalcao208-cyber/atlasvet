@@ -70,6 +70,13 @@ function dipyroneCard(speciesIndex, route) {
     <a href="${dipyrone.technical}" target="_blank" rel="noopener">Ficha técnica</a>
     <output id="dipyroneResult" class="value" style="display:none"></output></section>`;
 }
+const ivStrengths = {
+  'Ampicilina': { value: 294.1, presentation: 'Ampicilina sódica 1 g (Teuto/Blau), volume final de 3,4 mL após reconstituição; aproximadamente 294,1 mg/mL.', url: 'https://hospitaltacchini.com.br/pdf/MANUAL-DE-PADRONIZACAO.pdf' },
+  'Ampicilina + sulbactam': { value: 375, presentation: 'Unasyn 1,5 g, volume final de 4 mL após reconstituição. Total de 375 mg/mL: 250 mg/mL de ampicilina e 125 mg/mL de sulbactam.', url: 'https://labeling.pfizer.com/showlabeling.aspx?id=653' },
+  'Cefazolina sódica': { value: 94, presentation: 'Kefazol IV 1 g, volume final aproximado de 10,6 mL após reconstituição (cerca de 94 mg/mL).', url: 'https://www.ablbrasil.com.br/wp-content/uploads/2022/06/Kefazol_Profissional_IB190321.pdf' },
+  'Dipirona': { value: 500, presentation: 'Solução injetável de dipirona sódica a 500 mg/mL. Referência de concentração do frasco.', url: 'https://www.zoetis.com.br/global-assets/private/d-500_1.pdf' }
+};
+const ivInputs = ['', ''];
 const selectedDrugs = [null, null, null, null];
 function antibioticPanel(speciesIndex) {
   if (speciesIndex !== 0 && speciesIndex !== 1) return '';
@@ -104,7 +111,7 @@ if (animal < 2) {
   const route = selectedRoutes[animal];
   if (route === 'IV') {
     $('result').insertAdjacentHTML('beforebegin',
-      '<label for="concentration">Concentração da solução (mg/mL)</label><small id="concHint">Use a concentração do líquido que será aspirado, após reconstituição quando aplicável. Para associações, use a mesma base da dose prescrita.</small><input id="concentration" type="number" step="any" min="0" inputmode="decimal" aria-describedby="concHint" placeholder="Informe os mg por mL">');
+      '<label for="concentration">Concentração da solução (mg/mL)</label><small id="concHint">Use a concentração do líquido que será aspirado, após reconstituição quando aplicável. Confira o rótulo. Se a solução já foi diluída, informe a concentração real após a diluição.</small><input id="concentration" type="number" step="any" min="0" inputmode="decimal" aria-describedby="concHint" placeholder="Informe os mg por mL"><small id="ivPresentation"></small>');
   }
   const oral = route === 'VO';
   const hasDipyrone = oral || route === 'IV';
@@ -124,8 +131,16 @@ if (animal < 2) {
 }
 $('weight').value=weights[animal];$('slide').value=weights[animal];$('rate').value=rates[animal];
 const concentration = $('concentration');
+if (concentration) concentration.value = ivInputs[animal];
 function calc() {
   const drug = selectedDrugs[animal];
+  if (concentration) {
+    ivInputs[animal] = concentration.value;
+    const product = ivStrengths[drug];
+    $('ivPresentation').innerHTML = product
+      ? `Apresentação de referência: ${product.presentation} <a href="${product.url}" target="_blank" rel="noopener">Consultar fonte</a>`
+      : '';
+  }
   const reference = antibioticReferences.find(entry => entry.name === drug);
   $('rateHint').textContent = reference
     ? 'Exemplo inicial: ' + reference.minRate + ' mg/kg. Faixa do Bretas: ' + reference.minRate + '–' + reference.maxRate + ' mg/kg. Ajuste conforme a prescrição veterinária.'
@@ -146,7 +161,7 @@ function calc() {
       const strength = concentration.valueAsNumber;
       const volume = total / strength;
       result += strength > 0 && Number.isFinite(volume) && volume > 0
-        ? '. Volume por dose: ' + fmt(total) + ' mg ÷ ' + fmt(strength) + ' mg/mL = ' + fmt(volume) + ' mL.'
+        ? '. Volume a aspirar por dose: ' + fmt(total) + ' mg ÷ ' + fmt(strength) + ' mg/mL = ' + fmt(volume) + ' mL.'
         : '. Informe uma concentração maior que zero para calcular o volume em mL.';
     }
     if (animal === 0 && drug === 'Cefaclor' && total > 1000) {
@@ -174,7 +189,7 @@ function calc() {
   });
 }
 function selectDrug(name, rate) {
-  if (concentration && selectedDrugs[animal] !== name) concentration.value = '';
+  if (concentration && selectedDrugs[animal] !== name) concentration.value = ivStrengths[name]?.value ?? '';
   selectedDrugs[animal] = name;
   $('rate').value = rate;
   calc();
@@ -188,6 +203,7 @@ $('body').onclick = event => {
   if (routeButton) {
     if (routeButton.dataset.route === selectedRoutes[animal]) return;
     selectedRoutes[animal] = routeButton.dataset.route;
+    ivInputs[animal] = '';
     selectedDrugs[animal] = null;
     rates[animal] = '';
     render();
