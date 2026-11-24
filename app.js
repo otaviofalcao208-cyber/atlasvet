@@ -33,14 +33,16 @@ function antibioticPanel(speciesIndex) {
   const patient = species[speciesIndex];
   const cards = antibioticReferences.map((drug, index) => `
     <section class="panel">
-      <h3><button type="button" class="action" data-drug="${index}">${drug.name}</button></h3>
+      <h3>${drug.name}</h3>
       <p>${drug.group} · ${patient}. Faixa do guia: ${drug.minRate}–${drug.maxRate} mg/kg por dose, a cada ${drug.interval} horas. Via: ${drug.routes}.</p>
-      <p>${drug.note} ${speciesIndex === 0 && drug.dogNote ? drug.dogNote : ''}</p>
+      <p>${drug.note} ${drug.dogNote && speciesIndex === 0 ? drug.dogNote : ''}</p>
+      <button type="button" class="action" data-drug="${index}">Usar exemplo de ${drug.minRate} mg/kg</button>
+      <button type="button" data-source="${index}" style="background:none;border:0;color:#176448;text-decoration:underline;padding:6px 2px">Consultar referência</button>
       <output id="drug-result-${index}" class="value" aria-live="polite" style="display:none"></output>
-      <small>Bretas Viana, 4ª edição, p. ${drug.pages}.</small>
+
     </section>`).join('');
   return `<section aria-label="Antibióticos do guia"><h3>Antibióticos · ${patient}</h3>
-    <p>Toque no nome para calcular a faixa pelo peso. Confira a prescrição e a bula da apresentação.</p>${cards}</section>`;
+    <p>Use o exemplo para preencher a dose e calcular pelo peso. Confira a prescrição e a bula da apresentação.</p>${cards}</section>`;
 }
 function render(){
 page=pages.includes(location.hash.slice(1))?location.hash.slice(1):'inicio';
@@ -52,7 +54,7 @@ $('content').innerHTML='<h2>'+titles[idx]+'</h2><p class="intro">'+descriptions[
 const card=(i,title,desc)=>'<button class="card" data-page="'+pages[i]+'"><span class="badge tone'+(i-1)+'">'+icon(i)+'</span><h3>'+title+'</h3><p>'+desc+'</p></button>';
 if(page==='inicio')$('body').innerHTML='<div class="cards">'+card(1,'Calculadora de doses','Cálculo por peso e dose prescrita.')+card(2,'Guia de tóxicos','Exposição, sinais e atendimento.')+card(3,'Carência em bovinos','Intervalos para carne e leite.')+card(4,'Rascunho de receita','Preparo e impressão de orientações.')+'</div>';
 if(page==='doses'){
-$('body').innerHTML='<section class="panel"><h3 id="calcTitle" tabindex="-1">'+species[animal]+'</h3><label for="weight">Peso do animal (kg)</label><input id="weight" type="number" step="any" min="0.001"><input id="slide" aria-label="Ajustar peso em quilogramas" type="range" min="0.1" step="0.1" max="'+(animal<2?100:1200)+'"><label for="rate">Dose prescrita (mg/kg)</label><small id="rateHint" style="display:block"></small><input id="rate" aria-describedby="rateHint" type="number" min="0.000001" step="any" placeholder="Informe a dose"><button type="button" id="manualDose" class="install" hidden>Digitar dose prescrita</button><output class="value" id="result" aria-live="polite"></output></section>'+(animal===0?'<section class="panel"><h3>Meloxicam · manutenção</h3><p>Exemplo do vídeo para cães com prescrição de suspensão oral. A dose inicial tem cálculo próprio. Confirme a indicação e a bula da apresentação antes de usar.</p><button class="action" id="example">Usar exemplo de 0,1 mg/kg</button> <a href="https://animaldrugsatfda.fda.gov/adafda/app/search/public/document/downloadLabeling/2560" target="_blank" rel="noopener">Consultar bula</a></section>':'');
+$('body').innerHTML='<section class="panel"><h3 id="calcTitle" tabindex="-1">'+species[animal]+'</h3><label for="weight">Peso do animal (kg)</label><input id="weight" type="number" step="any" min="0.001"><input id="slide" aria-label="Ajustar peso em quilogramas" type="range" min="0.1" step="0.1" max="'+(animal<2?100:1200)+'"><label for="rate">Dose prescrita (mg/kg)</label><small id="rateHint" style="display:block"></small><input id="rate" aria-describedby="rateHint" type="number" min="0.000001" step="any" placeholder="Informe a dose"><output class="value" id="result" aria-live="polite"></output></section>'+(animal===0?'<section class="panel"><h3>Meloxicam · manutenção</h3><p>Exemplo do vídeo para cães com prescrição de suspensão oral. A dose inicial tem cálculo próprio. Confirme a indicação e a bula da apresentação antes de usar.</p><button class="action" id="example">Usar exemplo de 0,1 mg/kg</button> <a href="https://animaldrugsatfda.fda.gov/adafda/app/search/public/document/downloadLabeling/2560" target="_blank" rel="noopener">Consultar bula</a></section>':'');
 $('body').insertAdjacentHTML('beforeend', antibioticPanel(animal));
 if (animal < 2) {
   const buttons = antibioticReferences.map((entry, index) =>
@@ -64,15 +66,9 @@ $('weight').value=weights[animal];$('slide').value=weights[animal];$('rate').val
 function calc() {
   const drug = selectedDrugs[animal];
   const reference = antibioticReferences.find(entry => entry.name === drug);
-  const amoxicillin = drug === 'Amoxicilina';
-  $('rateHint').textContent = amoxicillin
+  $('rateHint').textContent = reference
     ? 'Exemplo inicial: ' + reference.minRate + ' mg/kg. Faixa do Bretas: ' + reference.minRate + '–' + reference.maxRate + ' mg/kg. Ajuste conforme a prescrição veterinária.'
     : '';
-  const manual = amoxicillin || $('rate').value !== '' || !reference;
-  $('manualDose').hidden = manual;
-  $('rate').hidden = !manual;
-  document.querySelector('label[for="rate"]').hidden = !manual;
-  document.querySelector('label[for="rate"]').style.display = manual ? '' : 'none';
   $('calcTitle').textContent = drug ? species[animal] + ' · ' + drug : species[animal];
   const weight = $('weight').valueAsNumber;
   const rate = $('rate').valueAsNumber;
@@ -84,18 +80,6 @@ function calc() {
     result = fmt(weight) + ' kg × ' + fmt(rate) + ' mg/kg = ' + fmt(total) + ' mg por dose';
     if (animal === 0 && drug === 'Cefaclor' && total > 1000) {
       result = 'O cálculo ultrapassa o limite de 1.000 mg por dose citado no guia para cães grandes. Confira a prescrição.';
-    }
-  }
-  if (reference && !amoxicillin && $('rate').value === '') {
-    result = 'Informe o peso do animal para calcular a faixa do guia.';
-    const low = reference.minRate * weight;
-    const high = reference.maxRate * weight;
-    if (weight > 0 && Number.isFinite(high)) {
-      if (animal === 0 && drug === 'Cefaclor' && high > 1000) {
-        result = 'A faixa calculada ultrapassa o limite de 1.000 mg por dose do guia para cães grandes. Confira a prescrição.';
-      } else {
-        result = 'Faixa do guia para ' + fmt(weight) + ' kg: ' + fmt(low) + '–' + fmt(high) + ' mg por dose.';
-      }
     }
   }
   $('result').textContent = result;
@@ -117,23 +101,21 @@ function selectDrug(name, rate) {
   }
 }
 $('body').onclick = event => {
+  const source = event.target.closest('button[data-source]');
+  if (source) {
+    const drug = antibioticReferences[Number(source.dataset.source)];
+    modal(`<h2>${drug.name}</h2><p>Fernando A. Bretas Viana, <cite>Guia Terapêutico Veterinário</cite>, 4ª edição, p. ${drug.pages}.</p><p>${drug.note}</p>`);
+    return;
+  }
   const button = event.target.closest('button[data-drug]');
   if (button) {
     const drug = antibioticReferences[Number(button.dataset.drug)];
-    selectDrug(drug.name, drug.name === 'Amoxicilina' ? String(drug.minRate) : '');
+    selectDrug(drug.name, String(drug.minRate));
   }
 };
 $('slide').oninput = () => { $('weight').value = $('slide').value; calc(); };
 $('weight').oninput = () => { $('slide').value = $('weight').value; calc(); };
 $('rate').oninput = calc;
-$('manualDose').onclick = () => {
-  $('rate').hidden = false;
-  const label = document.querySelector('label[for="rate"]');
-  label.hidden = false;
-  label.style.display = '';
-  $('manualDose').hidden = true;
-  $('rate').focus();
-};
 if ($('example')) $('example').onclick = () => selectDrug('Meloxicam · manutenção', '0.1');
 calc();
 }
