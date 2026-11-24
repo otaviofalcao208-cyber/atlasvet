@@ -17,16 +17,26 @@ window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e}
 $('install').onclick=async()=>{if(deferred){await deferred.prompt();deferred=null}else modal('<h2>Instalar AtlasVet</h2><p>No iPhone, abra o site no Safari, toque em Compartilhar e em Adicionar à Tela de Início.</p><p>No Android ou computador, procure Instalar aplicativo ou Adicionar à tela inicial no menu do navegador.</p>')};
 function go(p){location.hash=p}
 const antibioticReferences = [
-  { name: 'Amoxicilina', group: 'Aminopenicilina', minRate: 10, maxRate: 20, interval: '8–12', routes: 'oral, intramuscular ou subcutânea', pages: '51–52',
+  { name: 'Amoxicilina', group: 'Aminopenicilina', minRate: 10, maxRate: 20, interval: '8–12', routes: ['VO', 'IM', 'SC'], pages: '51–52',
     note: 'Avaliar histórico de alergia a penicilinas. O guia descreve vômito e diarreia entre os possíveis efeitos da administração oral.' },
-  { name: 'Amoxicilina + clavulanato de potássio', group: 'Aminopenicilina associada a inibidor de beta-lactamase', minRate: 15, maxRate: 20, interval: '8–12', routes: 'oral, intramuscular ou subcutânea', pages: '52',
+  { name: 'Amoxicilina + clavulanato de potássio', group: 'Aminopenicilina associada a inibidor de beta-lactamase', minRate: 15, maxRate: 20, interval: '8–12', routes: ['VO', 'IM', 'SC'], pages: '52',
     note: 'A faixa em mg/kg considera a soma dos dois princípios ativos. Conferir a proporção e a via autorizada da apresentação prescrita.' },
-  { name: 'Cefaclor', group: 'Cefalosporina', minRate: 10, maxRate: 20, interval: '8', routes: 'oral', pages: '96–97',
+  { name: 'Cefaclor', group: 'Cefalosporina', minRate: 10, maxRate: 20, interval: '8', routes: ['VO'], pages: '96–97',
     note: 'Avaliar alergia prévia a beta-lactâmicos. O guia desaconselha a via oral em choque, septicemia ou peritonite.',
     dogNote: 'O guia limita a dose a 1.000 mg por administração em cães grandes.' },
-  { name: 'Cefadroxila', group: 'Cefalosporina', minRate: 10, maxRate: 20, interval: '12', routes: 'oral', pages: '97',
-    note: 'Avaliar alergia prévia a beta-lactâmicos. O guia desaconselha a via oral em choque, septicemia ou peritonite.' }
-];
+  { name: 'Cefadroxila', group: 'Cefalosporina', minRate: 10, maxRate: 20, interval: '12', routes: ['VO'], pages: '97',
+    note: 'Avaliar alergia prévia a beta-lactâmicos. O guia desaconselha a via oral em choque, septicemia ou peritonite.' },
+  { name: 'Ampicilina', group: 'Aminopenicilina', minRate: 10, maxRate: 30, interval: '6–12', routes: ['VO', 'IV', 'IM', 'SC'], pages: '53–54',
+    note: 'Confirmar o sal e a formulação adequados à via prescrita. A forma oral e as apresentações injetáveis são distintas.' },
+  { name: 'Ampicilina + sulbactam', group: 'Aminopenicilina com inibidor de beta-lactamase', minRate: 15, maxRate: 30, interval: '8', routes: ['IV'], pages: '54',
+    note: 'O cálculo considera a soma de ampicilina e sulbactam. Confirmar a composição da apresentação intravenosa.' },
+  { name: 'Cefalexina', group: 'Cefalosporina', minRate: 20, maxRate: 30, interval: '12', routes: ['VO'], pages: '98',
+    note: 'Avaliar histórico de alergia a beta-lactâmicos. O guia desaconselha a via oral em choque, septicemia ou peritonite.' },
+  { name: 'Cefazolina sódica', group: 'Cefalosporina', minRate: 20, maxRate: 25, interval: '8', routes: ['IV', 'IM', 'SC'], pages: '99–100',
+    note: 'Conferir a via e o diluente da apresentação. Formulações intramusculares com lidocaína não devem ser usadas por via intravenosa.' }
+].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+const routeLabels = { VO: 'Oral', IV: 'Intravenosa', IM: 'Intramuscular', SC: 'Subcutânea' };
+const selectedRoutes = ['VO', 'VO'];
 const dipyrone = {
   name: 'Dipirona',
   rate: 25,
@@ -50,17 +60,18 @@ const selectedDrugs = [null, null, null, null];
 function antibioticPanel(speciesIndex) {
   if (speciesIndex !== 0 && speciesIndex !== 1) return '';
   const patient = species[speciesIndex];
-  const cards = antibioticReferences.map((drug, index) => `
+  const route = selectedRoutes[speciesIndex];
+  const cards = antibioticReferences.map((drug, index) => drug.routes.includes(route) ? `
     <section class="panel">
       <h3>${drug.name}</h3>
-      <p>${drug.group} · ${patient}. Faixa do guia: ${drug.minRate}–${drug.maxRate} mg/kg por dose, a cada ${drug.interval} horas. Via: ${drug.routes}.</p>
+      <p>${drug.group} · ${patient}. Faixa do guia: ${drug.minRate}–${drug.maxRate} mg/kg por dose, a cada ${drug.interval} horas. Via: ${routeLabels[route].toLowerCase()}.</p>
       <p>${drug.note} ${drug.dogNote && speciesIndex === 0 ? drug.dogNote : ''}</p>
       <button type="button" class="action" data-drug="${index}">Usar exemplo de ${drug.minRate} mg/kg</button>
       <button type="button" data-source="${index}" style="background:none;border:0;color:#176448;text-decoration:underline;padding:6px 2px">Consultar referência</button>
       <output id="drug-result-${index}" class="value" aria-live="polite" style="display:none"></output>
 
-    </section>`).join('');
-  return `<section aria-label="Antibióticos do guia"><h3>Antibióticos · ${patient}</h3>
+    </section>` : '').join('');
+  return `<section aria-label="Medicamentos por via"><h3>${route} · ${routeLabels[route]} · ${patient}</h3>
     <p>Use o exemplo para preencher a dose e calcular pelo peso. Confira a prescrição e a bula da apresentação.</p>${cards}</section>`;
 }
 function render(){
@@ -73,14 +84,24 @@ $('content').innerHTML='<h2>'+titles[idx]+'</h2><p class="intro">'+descriptions[
 const card=(i,title,desc)=>'<button class="card" data-page="'+pages[i]+'"><span class="badge tone'+(i-1)+'">'+icon(i)+'</span><h3>'+title+'</h3><p>'+desc+'</p></button>';
 if(page==='inicio')$('body').innerHTML='<div class="cards">'+card(1,'Calculadora de doses','Cálculo por peso e dose prescrita.')+card(2,'Guia de tóxicos','Exposição, sinais e atendimento.')+card(3,'Carência em bovinos','Intervalos para carne e leite.')+card(4,'Rascunho de receita','Preparo e impressão de orientações.')+'</div>';
 if(page==='doses'){
-$('body').innerHTML='<section class="panel"><h3 id="calcTitle" tabindex="-1">'+species[animal]+'</h3><label for="weight">Peso do animal (kg)</label><input id="weight" type="number" step="any" min="0.001"><input id="slide" aria-label="Ajustar peso em quilogramas" type="range" min="0.1" step="0.1" max="'+(animal<2?100:1200)+'"><label for="rate">Dose prescrita (mg/kg)</label><small id="rateHint" style="display:block"></small><input id="rate" aria-describedby="rateHint" type="number" min="0.000001" step="any" placeholder="Informe a dose"><output class="value" id="result" aria-live="polite"></output></section>'+(animal===0?'<section class="panel"><h3>Meloxicam · manutenção</h3><p>Exemplo do vídeo para cães com prescrição de suspensão oral. A dose inicial tem cálculo próprio. Confirme a indicação e a bula da apresentação antes de usar.</p><button class="action" id="example">Usar exemplo de 0,1 mg/kg</button> <a href="https://animaldrugsatfda.fda.gov/adafda/app/search/public/document/downloadLabeling/2560" target="_blank" rel="noopener">Consultar bula</a></section>':'');
+$('body').innerHTML='<section class="panel"><h3 id="calcTitle" tabindex="-1">'+species[animal]+'</h3><label for="weight">Peso do animal (kg)</label><input id="weight" type="number" step="any" min="0.001"><input id="slide" aria-label="Ajustar peso em quilogramas" type="range" min="0.1" step="0.1" max="'+(animal<2?100:1200)+'"><label for="rate">Dose prescrita (mg/kg)</label><small id="rateHint" style="display:block"></small><input id="rate" aria-describedby="rateHint" type="number" min="0.000001" step="any" placeholder="Informe a dose"><output class="value" id="result" aria-live="polite"></output></section>';;
 $('body').insertAdjacentHTML('beforeend', antibioticPanel(animal));
 if (animal < 2) {
-  $('body').insertAdjacentHTML('beforeend', dipyroneCard(animal));
-  const buttons = antibioticReferences.map((entry, index) =>
-    `<button type="button" class="install" data-drug="${index}">${entry.name}</button>`).join('');
+  const route = selectedRoutes[animal];
+  const oral = route === 'VO';
+  if (oral) {
+    $('body').insertAdjacentHTML('beforeend', dipyroneCard(animal));
+    if (animal === 0) $('body').insertAdjacentHTML('beforeend', '<section class="panel"><h3>Meloxicam · manutenção</h3><p>Exemplo do vídeo para cães com prescrição de suspensão oral. A dose inicial tem cálculo próprio. Confirme a indicação e a bula da apresentação antes de usar.</p><button class="action" id="example">Usar exemplo de 0,1 mg/kg</button> <a href="https://animaldrugsatfda.fda.gov/adafda/app/search/public/document/downloadLabeling/2560" target="_blank" rel="noopener">Consultar bula</a></section>');
+  }
+  const controls = Object.entries(routeLabels).map(([key, label]) =>
+    `<button type="button" class="install" style="margin:0;${route === key ? 'background:#175d49;color:white' : ''}" aria-pressed="${route === key}" data-route="${key}">${key} · ${label}</button>`).join('');
+  const buttons = antibioticReferences.map((entry, index) => entry.routes.includes(route)
+    ? `<button type="button" class="install" data-drug="${index}">${entry.name}</button>` : '').join('');
   $('calcTitle').insertAdjacentHTML('afterend',
-    '<p>Escolha o medicamento para calcular pelo peso.</p><div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0">' + buttons + '<button type="button" class="install" data-dipyrone>Dipirona</button></div>' );
+    '<p>Via de administração</p><div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0">' + controls +
+    '</div><p>Escolha o medicamento para calcular pelo peso.</p><div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0">' + buttons +
+    (oral ? '<button type="button" class="install" data-dipyrone>Dipirona</button>' : '') +
+    (oral && animal === 0 ? '<button type="button" class="install" data-meloxicam>Meloxicam</button>' : '') + '</div>');
 }
 $('weight').value=weights[animal];$('slide').value=weights[animal];$('rate').value=rates[animal];
 function calc() {
@@ -90,7 +111,7 @@ function calc() {
     ? 'Exemplo inicial: ' + reference.minRate + ' mg/kg. Faixa do Bretas: ' + reference.minRate + '–' + reference.maxRate + ' mg/kg. Ajuste conforme a prescrição veterinária.'
     : '';
   if (drug === dipyrone.name) $('rateHint').textContent = 'Exemplo da Biovet para a apresentação oral em gotas. Ajuste conforme a prescrição.';
-  $('calcTitle').textContent = drug ? species[animal] + ' · ' + drug : species[animal];
+  $('calcTitle').textContent = drug ? species[animal] + ' · ' + drug + ' · ' + selectedRoutes[animal] : species[animal];
   const weight = $('weight').valueAsNumber;
   const rate = $('rate').valueAsNumber;
   weights[animal] = $('weight').value;
@@ -130,6 +151,19 @@ function selectDrug(name, rate) {
   }
 }
 $('body').onclick = event => {
+  const routeButton = event.target.closest('button[data-route]');
+  if (routeButton) {
+    if (routeButton.dataset.route === selectedRoutes[animal]) return;
+    selectedRoutes[animal] = routeButton.dataset.route;
+    selectedDrugs[animal] = null;
+    rates[animal] = '';
+    render();
+    return;
+  }
+  if (event.target.closest('button[data-meloxicam]')) {
+    selectDrug('Meloxicam · manutenção', '0.1');
+    return;
+  }
   if (event.target.closest('button[data-dipyrone]')) {
     selectDrug(dipyrone.name, String(dipyrone.rate));
     return;
