@@ -27,21 +27,20 @@ const antibioticReferences = [
   { name: 'Cefadroxila', group: 'Cefalosporina', dose: '10–20', interval: '12', routes: 'oral', pages: '97',
     note: 'Avaliar alergia prévia a beta-lactâmicos. O guia desaconselha a via oral em choque, septicemia ou peritonite.' }
 ];
+const selectedDrugs = [null, null, null, null];
 function antibioticPanel(speciesIndex) {
   if (speciesIndex !== 0 && speciesIndex !== 1) return '';
   const patient = species[speciesIndex];
-  const cards = antibioticReferences.map(drug => `
-    <details class="panel">
-      <summary><strong>${drug.name}</strong> · ${patient}</summary>
-      <p>${drug.group} para infecções por bactérias sensíveis.</p>
-      <p><strong>Faixa descrita no guia</strong> · ${drug.dose} mg/kg por dose, a cada ${drug.interval} horas.</p>
-      <p><strong>Via</strong> · ${drug.routes}.</p>
+  const cards = antibioticReferences.map((drug, index) => `
+    <section class="panel">
+      <h3>${drug.name}</h3>
+      <p>${drug.group} · ${patient}. Faixa do guia: ${drug.dose} mg/kg por dose, a cada ${drug.interval} horas. Via: ${drug.routes}.</p>
       <p>${drug.note} ${speciesIndex === 0 && drug.dogNote ? drug.dogNote : ''}</p>
+      <button class="action" data-drug="${index}">Calcular dose prescrita</button>
       <small>Bretas Viana, 4ª edição, p. ${drug.pages}.</small>
-    </details>`).join('');
+    </section>`).join('');
   return `<section aria-label="Antibióticos do guia"><h3>Antibióticos · ${patient}</h3>
-    <p>Fichas do <cite>Guia Terapêutico Veterinário</cite>, de Fernando A. Bretas Viana, 4ª edição.
-    Abra o medicamento para consultar a faixa publicada. A escolha do antibiótico, da dose, da via e da duração depende da avaliação veterinária e da bula atual da apresentação.</p>${cards}</section>`;
+    <p>Referência para uso veterinário. Confira a prescrição e a bula da apresentação.</p>${cards}</section>`;
 }
 function render(){
 page=pages.includes(location.hash.slice(1))?location.hash.slice(1):'inicio';
@@ -53,11 +52,42 @@ $('content').innerHTML='<h2>'+titles[idx]+'</h2><p class="intro">'+descriptions[
 const card=(i,title,desc)=>'<button class="card" data-page="'+pages[i]+'"><span class="badge tone'+(i-1)+'">'+icon(i)+'</span><h3>'+title+'</h3><p>'+desc+'</p></button>';
 if(page==='inicio')$('body').innerHTML='<div class="cards">'+card(1,'Calculadora de doses','Cálculo por peso e dose prescrita.')+card(2,'Guia de tóxicos','Exposição, sinais e atendimento.')+card(3,'Carência em bovinos','Intervalos para carne e leite.')+card(4,'Rascunho de receita','Preparo e impressão de orientações.')+'</div>';
 if(page==='doses'){
-$('body').innerHTML='<section class="panel"><h3>'+species[animal]+'</h3><label for="weight">Peso do animal (kg)</label><input id="weight" type="number" step="any" min="0.001"><input id="slide" aria-label="Ajustar peso em quilogramas" type="range" min="0.1" step="0.1" max="'+(animal<2?100:1200)+'"><label for="rate">Dose prescrita (mg/kg)</label><input id="rate" type="number" min="0.000001" step="any" placeholder="Informe a dose"><output class="value" id="result" aria-live="polite"></output></section>'+(animal===0?'<section class="panel"><h3>Meloxicam · manutenção</h3><p>Exemplo do vídeo para cães com prescrição de suspensão oral. A dose inicial tem cálculo próprio. Confirme a indicação e a bula da apresentação antes de usar.</p><button class="action" id="example">Usar exemplo de 0,1 mg/kg</button> <a href="https://animaldrugsatfda.fda.gov/adafda/app/search/public/document/downloadLabeling/2560" target="_blank" rel="noopener">Consultar bula</a></section>':'');
+$('body').innerHTML='<section class="panel"><h3 id="calcTitle">'+species[animal]+'</h3><label for="weight">Peso do animal (kg)</label><input id="weight" type="number" step="any" min="0.001"><input id="slide" aria-label="Ajustar peso em quilogramas" type="range" min="0.1" step="0.1" max="'+(animal<2?100:1200)+'"><label for="rate">Dose prescrita (mg/kg)</label><input id="rate" type="number" min="0.000001" step="any" placeholder="Informe a dose"><output class="value" id="result" aria-live="polite"></output></section>'+(animal===0?'<section class="panel"><h3>Meloxicam · manutenção</h3><p>Exemplo do vídeo para cães com prescrição de suspensão oral. A dose inicial tem cálculo próprio. Confirme a indicação e a bula da apresentação antes de usar.</p><button class="action" id="example">Usar exemplo de 0,1 mg/kg</button> <a href="https://animaldrugsatfda.fda.gov/adafda/app/search/public/document/downloadLabeling/2560" target="_blank" rel="noopener">Consultar bula</a></section>':'');
 $('body').insertAdjacentHTML('beforeend', antibioticPanel(animal));
 $('weight').value=weights[animal];$('slide').value=weights[animal];$('rate').value=rates[animal];
-function calc(){const w=$('weight').valueAsNumber,r=$('rate').valueAsNumber;weights[animal]=$('weight').value;rates[animal]=$('rate').value;$('result').textContent=w>0&&r>0&&Number.isFinite(w*r)?fmt(w)+' kg × '+fmt(r)+' mg/kg = '+fmt(w*r)+' mg por dose':'Informe um peso e uma dose maiores que zero.'}
-$('slide').oninput=()=>{$('weight').value=$('slide').value;calc()};$('weight').oninput=()=>{$('slide').value=$('weight').value;calc()};$('rate').oninput=calc;if($('example'))$('example').onclick=()=>{$('rate').value='0.1';calc()};calc()
+function calc() {
+  const drug = selectedDrugs[animal];
+  $('calcTitle').textContent = drug ? species[animal] + ' · ' + drug : species[animal];
+  const weight = $('weight').valueAsNumber;
+  const rate = $('rate').valueAsNumber;
+  weights[animal] = $('weight').value;
+  rates[animal] = $('rate').value;
+  const total = weight * rate;
+  let result = 'Informe um peso e uma dose prescrita maiores que zero.';
+  if (weight > 0 && rate > 0 && Number.isFinite(total)) {
+    result = fmt(weight) + ' kg × ' + fmt(rate) + ' mg/kg = ' + fmt(total) + ' mg por dose';
+    if (animal === 0 && drug === 'Cefaclor' && total > 1000) {
+      result = 'O cálculo ultrapassa o limite de 1.000 mg por dose citado no guia para cães grandes. Confira a prescrição.';
+    }
+  }
+  $('result').textContent = result;
+}
+function selectDrug(name, rate) {
+  selectedDrugs[animal] = name;
+  $('rate').value = rate;
+  calc();
+  $('calcTitle').scrollIntoView({block: 'center'});
+  $('rate').focus({preventScroll: true});
+}
+$('body').onclick = event => {
+  const button = event.target.closest('button[data-drug]');
+  if (button) selectDrug(antibioticReferences[Number(button.dataset.drug)].name, '');
+};
+$('slide').oninput = () => { $('weight').value = $('slide').value; calc(); };
+$('weight').oninput = () => { $('slide').value = $('weight').value; calc(); };
+$('rate').oninput = calc;
+if ($('example')) $('example').onclick = () => selectDrug('Meloxicam · manutenção', '0.1');
+calc();
 }
 if(page==='toxicos')$('body').innerHTML='<section class="panel"><span class="badge tone1">'+icon(2)+'</span><h3>Chocolate</h3><p>Teobromina e cafeína. O risco varia com o tipo de chocolate, a quantidade ingerida e o peso do animal.</p><button class="action" id="choc">Abrir ficha</button></section>';
 if($('choc'))$('choc').onclick=()=>modal('<h2>Chocolate</h2><p>Em caso de ingestão, entre em contato com um serviço veterinário imediatamente. Informe espécie, peso, produto, quantidade aproximada e horário. Tenha a embalagem em mãos.</p><h3>Sinais possíveis</h3><p>Vômitos, agitação, frequência cardíaca elevada e, em casos graves, convulsões. Evite provocar vômito por conta própria.</p><a href="https://www.merckvetmanual.com/toxicology/food-hazards/chocolate-toxicosis-in-animals" target="_blank" rel="noopener">Consultar Manual Veterinário Merck</a>');
