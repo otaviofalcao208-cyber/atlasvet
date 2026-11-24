@@ -17,14 +17,14 @@ window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e}
 $('install').onclick=async()=>{if(deferred){await deferred.prompt();deferred=null}else modal('<h2>Instalar AtlasVet</h2><p>No iPhone, abra o site no Safari, toque em Compartilhar e em Adicionar à Tela de Início.</p><p>No Android ou computador, procure Instalar aplicativo ou Adicionar à tela inicial no menu do navegador.</p>')};
 function go(p){location.hash=p}
 const antibioticReferences = [
-  { name: 'Amoxicilina', group: 'Aminopenicilina', dose: '10–20', interval: '8–12', routes: 'oral, intramuscular ou subcutânea', pages: '51–52',
+  { name: 'Amoxicilina', group: 'Aminopenicilina', minRate: 10, maxRate: 20, interval: '8–12', routes: 'oral, intramuscular ou subcutânea', pages: '51–52',
     note: 'Avaliar histórico de alergia a penicilinas. O guia descreve vômito e diarreia entre os possíveis efeitos da administração oral.' },
-  { name: 'Amoxicilina + clavulanato de potássio', group: 'Aminopenicilina associada a inibidor de beta-lactamase', dose: '15–20', interval: '8–12', routes: 'oral, intramuscular ou subcutânea', pages: '52',
+  { name: 'Amoxicilina + clavulanato de potássio', group: 'Aminopenicilina associada a inibidor de beta-lactamase', minRate: 15, maxRate: 20, interval: '8–12', routes: 'oral, intramuscular ou subcutânea', pages: '52',
     note: 'A faixa em mg/kg considera a soma dos dois princípios ativos. Conferir a proporção e a via autorizada da apresentação prescrita.' },
-  { name: 'Cefaclor', group: 'Cefalosporina', dose: '10–20', interval: '8', routes: 'oral', pages: '96–97',
+  { name: 'Cefaclor', group: 'Cefalosporina', minRate: 10, maxRate: 20, interval: '8', routes: 'oral', pages: '96–97',
     note: 'Avaliar alergia prévia a beta-lactâmicos. O guia desaconselha a via oral em choque, septicemia ou peritonite.',
     dogNote: 'O guia limita a dose a 1.000 mg por administração em cães grandes.' },
-  { name: 'Cefadroxila', group: 'Cefalosporina', dose: '10–20', interval: '12', routes: 'oral', pages: '97',
+  { name: 'Cefadroxila', group: 'Cefalosporina', minRate: 10, maxRate: 20, interval: '12', routes: 'oral', pages: '97',
     note: 'Avaliar alergia prévia a beta-lactâmicos. O guia desaconselha a via oral em choque, septicemia ou peritonite.' }
 ];
 const selectedDrugs = [null, null, null, null];
@@ -33,14 +33,13 @@ function antibioticPanel(speciesIndex) {
   const patient = species[speciesIndex];
   const cards = antibioticReferences.map((drug, index) => `
     <section class="panel">
-      <h3>${drug.name}</h3>
-      <p>${drug.group} · ${patient}. Faixa do guia: ${drug.dose} mg/kg por dose, a cada ${drug.interval} horas. Via: ${drug.routes}.</p>
+      <h3><button type="button" class="action" data-drug="${index}">${drug.name}</button></h3>
+      <p>${drug.group} · ${patient}. Faixa do guia: ${drug.minRate}–${drug.maxRate} mg/kg por dose, a cada ${drug.interval} horas. Via: ${drug.routes}.</p>
       <p>${drug.note} ${speciesIndex === 0 && drug.dogNote ? drug.dogNote : ''}</p>
-      <button class="action" data-drug="${index}">Calcular dose prescrita</button>
       <small>Bretas Viana, 4ª edição, p. ${drug.pages}.</small>
     </section>`).join('');
   return `<section aria-label="Antibióticos do guia"><h3>Antibióticos · ${patient}</h3>
-    <p>Referência para uso veterinário. Confira a prescrição e a bula da apresentação.</p>${cards}</section>`;
+    <p>Toque no nome para calcular a faixa pelo peso. Confira a prescrição e a bula da apresentação.</p>${cards}</section>`;
 }
 function render(){
 page=pages.includes(location.hash.slice(1))?location.hash.slice(1):'inicio';
@@ -52,7 +51,7 @@ $('content').innerHTML='<h2>'+titles[idx]+'</h2><p class="intro">'+descriptions[
 const card=(i,title,desc)=>'<button class="card" data-page="'+pages[i]+'"><span class="badge tone'+(i-1)+'">'+icon(i)+'</span><h3>'+title+'</h3><p>'+desc+'</p></button>';
 if(page==='inicio')$('body').innerHTML='<div class="cards">'+card(1,'Calculadora de doses','Cálculo por peso e dose prescrita.')+card(2,'Guia de tóxicos','Exposição, sinais e atendimento.')+card(3,'Carência em bovinos','Intervalos para carne e leite.')+card(4,'Rascunho de receita','Preparo e impressão de orientações.')+'</div>';
 if(page==='doses'){
-$('body').innerHTML='<section class="panel"><h3 id="calcTitle">'+species[animal]+'</h3><label for="weight">Peso do animal (kg)</label><input id="weight" type="number" step="any" min="0.001"><input id="slide" aria-label="Ajustar peso em quilogramas" type="range" min="0.1" step="0.1" max="'+(animal<2?100:1200)+'"><label for="rate">Dose prescrita (mg/kg)</label><input id="rate" type="number" min="0.000001" step="any" placeholder="Informe a dose"><output class="value" id="result" aria-live="polite"></output></section>'+(animal===0?'<section class="panel"><h3>Meloxicam · manutenção</h3><p>Exemplo do vídeo para cães com prescrição de suspensão oral. A dose inicial tem cálculo próprio. Confirme a indicação e a bula da apresentação antes de usar.</p><button class="action" id="example">Usar exemplo de 0,1 mg/kg</button> <a href="https://animaldrugsatfda.fda.gov/adafda/app/search/public/document/downloadLabeling/2560" target="_blank" rel="noopener">Consultar bula</a></section>':'');
+$('body').innerHTML='<section class="panel"><h3 id="calcTitle" tabindex="-1">'+species[animal]+'</h3><label for="weight">Peso do animal (kg)</label><input id="weight" type="number" step="any" min="0.001"><input id="slide" aria-label="Ajustar peso em quilogramas" type="range" min="0.1" step="0.1" max="'+(animal<2?100:1200)+'"><label for="rate">Dose prescrita (mg/kg)</label><input id="rate" type="number" min="0.000001" step="any" placeholder="Informe a dose"><output class="value" id="result" aria-live="polite"></output></section>'+(animal===0?'<section class="panel"><h3>Meloxicam · manutenção</h3><p>Exemplo do vídeo para cães com prescrição de suspensão oral. A dose inicial tem cálculo próprio. Confirme a indicação e a bula da apresentação antes de usar.</p><button class="action" id="example">Usar exemplo de 0,1 mg/kg</button> <a href="https://animaldrugsatfda.fda.gov/adafda/app/search/public/document/downloadLabeling/2560" target="_blank" rel="noopener">Consultar bula</a></section>':'');
 $('body').insertAdjacentHTML('beforeend', antibioticPanel(animal));
 $('weight').value=weights[animal];$('slide').value=weights[animal];$('rate').value=rates[animal];
 function calc() {
@@ -70,6 +69,19 @@ function calc() {
       result = 'O cálculo ultrapassa o limite de 1.000 mg por dose citado no guia para cães grandes. Confira a prescrição.';
     }
   }
+  const reference = antibioticReferences.find(entry => entry.name === drug);
+  if (reference && $('rate').value === '') {
+    result = 'Informe o peso do animal para calcular a faixa do guia.';
+    const low = reference.minRate * weight;
+    const high = reference.maxRate * weight;
+    if (weight > 0 && Number.isFinite(high)) {
+      if (animal === 0 && drug === 'Cefaclor' && high > 1000) {
+        result = 'A faixa calculada ultrapassa o limite de 1.000 mg por dose do guia para cães grandes. Confira a prescrição.';
+      } else {
+        result = 'Faixa do guia para ' + fmt(weight) + ' kg: ' + fmt(low) + '–' + fmt(high) + ' mg por dose.';
+      }
+    }
+  }
   $('result').textContent = result;
 }
 function selectDrug(name, rate) {
@@ -77,7 +89,7 @@ function selectDrug(name, rate) {
   $('rate').value = rate;
   calc();
   $('calcTitle').scrollIntoView({block: 'center'});
-  $('rate').focus({preventScroll: true});
+  $('calcTitle').focus({preventScroll: true});
 }
 $('body').onclick = event => {
   const button = event.target.closest('button[data-drug]');
