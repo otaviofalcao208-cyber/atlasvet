@@ -71,6 +71,8 @@ function dipyroneCard(speciesIndex, route) {
     <output id="dipyroneResult" class="value" style="display:none"></output></section>`;
 }
 const ivStrengths = {
+  'Furosemida': { value: 50, exampleRate: 1, presentation: 'Zalix injetável contém 50 mg de furosemida por mL.', url: 'https://casadalavoura.vteximg.com.br/arquivos/1690.pdf' },
+  'Ondansetrona': { value: 10, exampleRate: 0.5, presentation: 'Emedron 1% injetável contém 10 mg de ondansetrona base por mL.', url: 'https://agener.com.br/wp-content/uploads/2020/08/4020080-Emedron.pdf' },
   'Ampicilina': { value: 294.1, presentation: 'Ampicilina sódica 1 g (Teuto/Blau), volume final de 3,4 mL após reconstituição; aproximadamente 294,1 mg/mL.', url: 'https://hospitaltacchini.com.br/pdf/MANUAL-DE-PADRONIZACAO.pdf' },
   'Ampicilina + sulbactam': { value: 375, presentation: 'Unasyn 1,5 g, volume final de 4 mL após reconstituição. Total de 375 mg/mL: 250 mg/mL de ampicilina e 125 mg/mL de sulbactam.', url: 'https://labeling.pfizer.com/showlabeling.aspx?id=653' },
   'Cefazolina sódica': { value: 94, presentation: 'Kefazol IV 1 g, volume final aproximado de 10,6 mL após reconstituição (cerca de 94 mg/mL).', url: 'https://www.ablbrasil.com.br/wp-content/uploads/2022/06/Kefazol_Profissional_IB190321.pdf' },
@@ -123,9 +125,18 @@ if (animal < 2) {
     `<button type="button" class="install" style="margin:0;${route === key ? 'background:#175d49;color:white' : ''}" aria-pressed="${route === key}" data-route="${key}">${key} · ${label}</button>`).join('');
   const buttons = antibioticReferences.map((entry, index) => entry.routes.includes(route)
     ? `<button type="button" class="install" data-drug="${index}">${entry.name}</button>` : '').join('');
+  const ivOptions = route === 'IV' ? Object.entries(ivStrengths).filter(([, product]) => product.exampleRate) : [];
+  const ivButtons = ivOptions.map(([name]) =>
+    `<button type="button" class="install" data-iv-drug="${name}">${name}</button>`).join('');
+  for (const [name, product] of ivOptions) {
+    $('body').insertAdjacentHTML('beforeend', `<section class="panel"><h3>${name} · intravenosa</h3>
+      <p>${product.presentation}</p>
+      <button type="button" class="action" data-iv-drug="${name}">Usar exemplo de ${fmt(product.exampleRate)} mg/kg</button>
+      <a href="${product.url}" target="_blank" rel="noopener">Consultar bula</a></section>`);
+  }
   $('calcTitle').insertAdjacentHTML('afterend',
     '<p>Via de administração</p><div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0">' + controls +
-    '</div><p>Escolha o medicamento para calcular pelo peso.</p><div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0">' + buttons +
+    '</div><p>Escolha o medicamento para calcular pelo peso.</p><div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0">' + buttons + ivButtons +
     (hasDipyrone ? '<button type="button" class="install" data-dipyrone>Dipirona</button>' : '') +
     (oral && animal === 0 ? '<button type="button" class="install" data-meloxicam>Meloxicam</button>' : '') + '</div>');
 }
@@ -145,6 +156,9 @@ function calc() {
   $('rateHint').textContent = reference
     ? 'Exemplo inicial: ' + reference.minRate + ' mg/kg. Faixa do Bretas: ' + reference.minRate + '–' + reference.maxRate + ' mg/kg. Ajuste conforme a prescrição veterinária.'
     : '';
+  if (concentration && ivStrengths[drug]?.exampleRate) {
+    $('rateHint').textContent = 'Exemplo da bula da apresentação de referência. Ajuste a dose conforme a prescrição veterinária.';
+  }
   if (drug === dipyrone.name) $('rateHint').textContent = selectedRoutes[animal] === 'IV'
     ? 'Exemplo intravenoso para cálculo em mg. Confirme a dose prescrita para este paciente.'
     : 'Exemplo da Biovet para a apresentação oral em gotas. Ajuste conforme a prescrição.';
@@ -215,6 +229,12 @@ $('body').onclick = event => {
   }
   if (event.target.closest('button[data-dipyrone]')) {
     selectDrug(dipyrone.name, String(selectedRoutes[animal] === 'IV' ? dipyrone.ivExample : dipyrone.oralRate));
+    return;
+  }
+  const ivButton = event.target.closest('button[data-iv-drug]');
+  if (ivButton) {
+    const name = ivButton.dataset.ivDrug;
+    selectDrug(name, String(ivStrengths[name].exampleRate));
     return;
   }
   const source = event.target.closest('button[data-source]');
