@@ -45,6 +45,9 @@ const dipyrone = {
   label: 'https://guardiaodocuidado.com.br/wp-content/uploads/2024/10/Para-Site-Ipanema-Bula-Dipirona-Gotas-1141-ME-1.pdf',
   technical: 'https://guardiaodocuidado.com.br/wp-content/uploads/2024/10/BOV_0012_22D_artigo_tecnico_dipirona_210x297mm-1.pdf'
 };
+function cardCalculation(name) {
+  return `<div class="card-calculation" data-calculation="${name}" hidden><strong>Cálculo da dose</strong><p></p></div>`;
+}
 function dipyroneCard(speciesIndex, route) {
   if (route === 'IV') {
     const dog = speciesIndex === 0;
@@ -53,22 +56,22 @@ function dipyroneCard(speciesIndex, route) {
     const description = dog
       ? 'O Bretas (4ª edição, p. 165) descreve até 25 mg/kg por administração em cães.'
       : 'O exemplo de 25 mg/kg foi estudado em gatas sob acompanhamento veterinário após ovariohisterectomia.';
-    return `<section class="panel"><h3>Dipirona · intravenosa</h3>
+    return `<section class="panel drug-card"><h3>Dipirona · intravenosa</h3>
       <p>${description} Cálculo em mg para a apresentação injetável de uso IV. A administração e a monitorização cabem à equipe veterinária.</p>
       <button class="action" type="button" data-dipyrone>Usar exemplo de ${dipyrone.ivExample} mg/kg</button>
       <a href="${source}" target="_blank" rel="noopener">Consultar estudo</a>
-      <output id="dipyroneResult" class="value" style="display:none"></output></section>`;
+      ${cardCalculation(dipyrone.name)}</section>`;
   }
   const source = speciesIndex === 0
     ? 'Referências: Bretas Viana, 4ª edição, p. 165 (cães), e Biovet.'
     : 'Referência da dose felina: material técnico da Biovet.';
-  return `<section class="panel"><h3>Dipirona · gotas orais</h3>
+  return `<section class="panel drug-card"><h3>Dipirona · gotas orais</h3>
     <p>Exemplo para ${species[speciesIndex].toLowerCase()} com prescrição de Dipirona Gotas Biovet (500 mg/mL), para dor ou febre. O limite da bula é de 35 gotas por administração, equivalentes a 875 mg nesta apresentação.</p>
     <p>${source} Consulte o veterinário sobre o intervalo. Evite em animais com hipersensibilidade à dipirona.</p>
     <button class="action" type="button" data-dipyrone>Usar exemplo de ${dipyrone.oralRate} mg/kg</button>
-    <a href="${dipyrone.label}" target="_blank" rel="noopener">Consultar bula</a> ·
+    <a href="${dipyrone.label}" target="_blank" rel="noopener">Consultar bula</a>
     <a href="${dipyrone.technical}" target="_blank" rel="noopener">Ficha técnica</a>
-    <output id="dipyroneResult" class="value" style="display:none"></output></section>`;
+    ${cardCalculation(dipyrone.name)}</section>`;
 }
 const ivStrengths = {
   'Furosemida': { value: 50, exampleRate: 1, presentation: 'Zalix injetável contém 50 mg de furosemida por mL.', url: 'https://casadalavoura.vteximg.com.br/arquivos/1690.pdf' },
@@ -85,17 +88,17 @@ function antibioticPanel(speciesIndex) {
   const patient = species[speciesIndex];
   const route = selectedRoutes[speciesIndex];
   const cards = antibioticReferences.map((drug, index) => drug.routes.includes(route) ? `
-    <section class="panel">
+    <section class="panel drug-card">
       <h3>${drug.name}</h3>
       <p>${drug.group} · ${patient}. Faixa do guia: ${drug.minRate}–${drug.maxRate} mg/kg por dose, a cada ${drug.interval} horas. Via: ${routeLabels[route].toLowerCase()}.</p>
       <p>${drug.note} ${drug.dogNote && speciesIndex === 0 ? drug.dogNote : ''}</p>
       <button type="button" class="action" data-drug="${index}">Usar exemplo de ${drug.minRate} mg/kg</button>
-      <button type="button" data-source="${index}" style="background:none;border:0;color:#176448;text-decoration:underline;padding:6px 2px">Consultar referência</button>
-      <output id="drug-result-${index}" class="value" aria-live="polite" style="display:none"></output>
+      <button type="button" data-source="${index}" class="source-link">Consultar referência</button>
+      ${cardCalculation(drug.name)}
 
     </section>` : '').join('');
   return `<section aria-label="Medicamentos por via"><h3>${route} · ${routeLabels[route]} · ${patient}</h3>
-    <p>Use o exemplo para preencher a dose e calcular pelo peso. Confira a prescrição e a bula da apresentação.</p>${cards}</section>`;
+    <p>Use o exemplo para preencher a dose e calcular pelo peso. Confira a prescrição e a bula da apresentação.</p><div id="drugGrid" class="drug-grid">${cards}</div></section>`;
 }
 function render(){
 page=pages.includes(location.hash.slice(1))?location.hash.slice(1):'inicio';
@@ -117,9 +120,9 @@ if (animal < 2) {
   }
   const oral = route === 'VO';
   const hasDipyrone = oral || route === 'IV';
-  if (hasDipyrone) $('body').insertAdjacentHTML('beforeend', dipyroneCard(animal, route));
+  if (hasDipyrone) $('drugGrid').insertAdjacentHTML('beforeend', dipyroneCard(animal, route));
   if (oral) {
-    if (animal === 0) $('body').insertAdjacentHTML('beforeend', '<section class="panel"><h3>Meloxicam · manutenção</h3><p>Exemplo do vídeo para cães com prescrição de suspensão oral. A dose inicial tem cálculo próprio. Confirme a indicação e a bula da apresentação antes de usar.</p><button class="action" id="example">Usar exemplo de 0,1 mg/kg</button> <a href="https://animaldrugsatfda.fda.gov/adafda/app/search/public/document/downloadLabeling/2560" target="_blank" rel="noopener">Consultar bula</a></section>');
+    if (animal === 0) $('drugGrid').insertAdjacentHTML('beforeend', '<section class="panel drug-card"><h3>Meloxicam · manutenção</h3><p>Exemplo do vídeo para cães com prescrição de suspensão oral. A dose inicial tem cálculo próprio. Confirme a indicação e a bula da apresentação antes de usar.</p><button class="action" id="example">Usar exemplo de 0,1 mg/kg</button> <a href="https://animaldrugsatfda.fda.gov/adafda/app/search/public/document/downloadLabeling/2560" target="_blank" rel="noopener">Consultar bula</a>' + cardCalculation('Meloxicam · manutenção') + '</section>');
   }
   const controls = Object.entries(routeLabels).map(([key, label]) =>
     `<button type="button" class="install" style="margin:0;${route === key ? 'background:#175d49;color:white' : ''}" aria-pressed="${route === key}" data-route="${key}">${key} · ${label}</button>`).join('');
@@ -129,10 +132,10 @@ if (animal < 2) {
   const ivButtons = ivOptions.map(([name]) =>
     `<button type="button" class="install" data-iv-drug="${name}">${name}</button>`).join('');
   for (const [name, product] of ivOptions) {
-    $('body').insertAdjacentHTML('beforeend', `<section class="panel"><h3>${name} · intravenosa</h3>
+    $('drugGrid').insertAdjacentHTML('beforeend', `<section class="panel drug-card"><h3>${name} · intravenosa</h3>
       <p>${product.presentation}</p>
       <button type="button" class="action" data-iv-drug="${name}">Usar exemplo de ${fmt(product.exampleRate)} mg/kg</button>
-      <a href="${product.url}" target="_blank" rel="noopener">Consultar bula</a></section>`);
+      <a href="${product.url}" target="_blank" rel="noopener">Consultar bula</a>${cardCalculation(name)}</section>`);
   }
   $('calcTitle').insertAdjacentHTML('afterend',
     '<p>Via de administração</p><div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0">' + controls +
@@ -169,37 +172,40 @@ function calc() {
   rates[animal] = $('rate').value;
   const total = weight * rate;
   let result = 'Informe um peso e uma dose prescrita maiores que zero.';
+  let detail = '';
   if (weight > 0 && rate > 0 && Number.isFinite(total)) {
-    result = fmt(weight) + ' kg × ' + fmt(rate) + ' mg/kg = ' + fmt(total) + ' mg por dose';
+    result = 'Dose calculada: ' + fmt(total) + ' mg por dose.';
+    detail = fmt(weight) + ' kg × ' + fmt(rate) + ' mg/kg = ' + fmt(total) + ' mg por dose';
     if (concentration) {
       const strength = concentration.valueAsNumber;
       const volume = total / strength;
-      result += strength > 0 && Number.isFinite(volume) && volume > 0
-        ? '. Volume a aspirar por dose: ' + fmt(total) + ' mg ÷ ' + fmt(strength) + ' mg/mL = ' + fmt(volume) + ' mL.'
-        : '. Informe uma concentração maior que zero para calcular o volume em mL.';
+      if (strength > 0 && Number.isFinite(volume) && volume > 0) {
+        const rounded = Number(volume >= 0.1 ? volume.toFixed(2) : volume.toPrecision(2));
+        result = 'Volume por dose: ' + (rounded === volume ? '' : '≈ ') + fmt(rounded) + ' mL.';
+        detail += '\n' + fmt(total) + ' mg ÷ ' + fmt(strength) + ' mg/mL = ' + fmt(volume) + ' mL.';
+      } else {
+        result = 'Informe uma concentração maior que zero para calcular o volume.';
+      }
     }
     if (animal === 0 && drug === 'Cefaclor' && total > 1000) {
+      detail = '';
       result = 'O cálculo ultrapassa o limite de 1.000 mg por dose citado no guia para cães grandes. Confira a prescrição.';
     }
   }
   if (drug === dipyrone.name && selectedRoutes[animal] === 'VO' && total > dipyrone.maxMg) {
+    detail = '';
     result = 'O cálculo excede o limite da bula para esta apresentação (875 mg por dose). Confira a prescrição com o veterinário.';
   }
   if (drug === dipyrone.name && selectedRoutes[animal] === 'IV' && animal === 0 && rate > dipyrone.ivExample) {
+    detail = '';
     result = 'A dose informada supera a referência canina do Bretas. Confira a prescrição.';
   }
   $('result').textContent = result;
-  const dipyroneOutput = $('dipyroneResult');
-  if (dipyroneOutput) {
-    dipyroneOutput.style.display = drug === dipyrone.name ? 'block' : 'none';
-    dipyroneOutput.textContent = drug === dipyrone.name ? result : '';
-  }
-  antibioticReferences.forEach((entry, index) => {
-    const output = $('drug-result-' + index);
-    if (!output) return;
-    const active = entry.name === drug;
-    output.style.display = active ? 'block' : 'none';
-    output.textContent = active ? result : '';
+  document.querySelectorAll('[data-calculation]').forEach(block => {
+    const active = block.dataset.calculation === drug;
+    block.closest('.drug-card').classList.toggle('is-selected', active);
+    block.hidden = !active || !detail;
+    block.querySelector('p').textContent = active ? detail : '';
   });
 }
 function selectDrug(name, rate) {
